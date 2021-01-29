@@ -23,7 +23,7 @@ contract TokenManualConsumer is Ownable {
     /**
      * @notice Deploy the contract
      * @dev Sets the storage for the specified addresses
-     * @param _gameforth The Gameforth contract to call
+     * @param _gameforth The Ampleforth contract to call
      */
     constructor(address _gameforth) public {
         _updateRequestDetails(_gameforth);
@@ -39,9 +39,9 @@ contract TokenManualConsumer is Ownable {
     }
 
     /**
-     * @notice Calls the Gameforth contract's pushReport method with the response
+     * @notice Calls the Ampleforth contract's pushReport method with the response
      * from the oracle
-     * @param _data The answer provided by the oracle
+     * @param _data The answer provided by the oracle, rGME/USD with 9 decimal points
      */
     function fulfillPushReport(int256 _data) external onlyOwner() {
         currentAnswer = _data;
@@ -50,7 +50,7 @@ contract TokenManualConsumer is Ownable {
     }
 
     /**
-     * @notice Calls Gameforth contract's purge function
+     * @notice Calls Ampleforth contract's purge function
      */
     function purgeReports() external onlyOwner() {
         GameForthInterface(gameForth).purgeReports();

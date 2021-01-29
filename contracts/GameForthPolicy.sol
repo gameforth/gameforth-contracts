@@ -13,12 +13,12 @@ interface IOracle {
 }
 
 /**
- * @title Gameforth Monetary Supply Policy
- * @dev This is an implementation of the Gameforth Ideal Money protocol.
- *      Gameforth operates symmetrically on expansion and contraction. It will both split and
+ * @title uFragments Monetary Supply Policy
+ * @dev This is an implementation of the uFragments Ideal Money protocol.
+ *      uFragments operates symmetrically on expansion and contraction. It will both split and
  *      combine coins to maintain a stable unit price.
  *
- *      This component regulates the token supply of the Gameforth ERC20 token in response to
+ *      This component regulates the token supply of the uFragments ERC20 token in response to
  *      market oracles.
  */
 contract GameForthPolicy is Ownable {
@@ -28,8 +28,8 @@ contract GameForthPolicy is Ownable {
 
     event LogRebase(
         uint256 indexed epoch,
-        uint256 exchangeRate,
-        uint256 cpi,
+        uint256 tokenRate,
+        uint256 stockRate,
         int256 requestedSupplyAdjustment,
         uint256 timestampSec
     );
@@ -40,9 +40,10 @@ contract GameForthPolicy is Ownable {
     IOracle public stockOracle;
 
     // Market oracle provides the token/USD exchange rate as an 18 decimal fixed point number.
+    // (eg) An oracle value of 1.5e18 it would mean 1 Ample is trading for $1.50.
     IOracle public marketOracle;
 
-    // Stock value at the time of launch, as an 18 decimal fixed point number.
+    // Stock value at the time of launch, as a 9 decimal fixed point number.
     uint256 private baseStock;
 
     // If the current exchange rate is within this fractional distance from the target, no supply
@@ -72,7 +73,7 @@ contract GameForthPolicy is Ownable {
     // The number of rebase cycles since inception
     uint256 public epoch;
 
-    uint256 private constant DECIMALS = 18;
+    uint256 private constant DECIMALS = 9;
 
     // Due to the expression in computeSupplyDelta(), MAX_RATE * MAX_SUPPLY must fit into an int256.
     // Both are 18 decimals fixed point numbers.
@@ -96,7 +97,7 @@ contract GameForthPolicy is Ownable {
      *      and targetRate is stockOracleRate / baseStock
      */
     function rebase() external onlyOrchestrator {
-        require(inRebaseWindow());
+        require(inRebaseWindow(), "GameForthPolicy: must be in rebase window");
 
         // This comparison also ensures there is no reentrancy.
         require(lastRebaseTimestampSec.add(minRebaseTimeIntervalSec) < now);
@@ -113,20 +114,20 @@ contract GameForthPolicy is Ownable {
         (stock, stockValid) = stockOracle.getData();
         require(stockValid);
 
-        uint256 targetRate = stock.mul(10**DECIMALS).div(baseStock);
+        uint256 targetRate = stock.div(baseStock);
 
-        uint256 exchangeRate;
+        uint256 tokenRate;
         bool rateValid;
-        (exchangeRate, rateValid) = marketOracle.getData();
+        (tokenRate, rateValid) = marketOracle.getData();
         require(rateValid);
 
-        if (exchangeRate > MAX_RATE) {
-            exchangeRate = MAX_RATE;
+        if (tokenRate > MAX_RATE) {
+            tokenRate = MAX_RATE;
         }
 
-        int256 supplyDelta = computeSupplyDelta(exchangeRate, targetRate);
+        int256 supplyDelta = computeSupplyDelta(tokenRate, targetRate);
 
-        // Apply the Dampening factor. TODO: Maybe remove
+        // Apply the Dampening factor.
         supplyDelta = supplyDelta.div(rebaseLag.toInt256Safe());
 
         if (
@@ -139,7 +140,7 @@ contract GameForthPolicy is Ownable {
 
         uint256 supplyAfterRebase = gameForth.rebase(epoch, supplyDelta);
         assert(supplyAfterRebase <= MAX_SUPPLY);
-        emit LogRebase(epoch, exchangeRate, stock, supplyDelta, now);
+        emit LogRebase(epoch, tokenRate, stock, supplyDelta, now);
     }
 
     /**
@@ -217,8 +218,16 @@ contract GameForthPolicy is Ownable {
         rebaseWindowLengthSec = rebaseWindowLengthSec_;
     }
 
-
-    function globalGameforthEpochAndGMESupply()
+    /**
+     * @notice The Gameforth monetary policy contract
+     *         on the base-chain and XC-AmpleController contracts on the satellite-chains
+     *         implement this method. It atomically returns two values:
+     *         what the current contract believes to be,
+     *         the globalGameforthEpoch and globalAMPLSupply.
+     * @return globalGameforthEpoch The current epoch number.
+     * @return globalrGMESupply The total supply at the current epoch.
+     */
+    function globalGameforthEpochAndrGMESupply()
         external
         view
         returns (uint256, uint256)
@@ -232,11 +241,11 @@ contract GameForthPolicy is Ownable {
      */
     constructor(GameForth gameForth_, uint256 baseStock_) public {
         // deviationThreshold = 0.05e18 = 5e16
-        deviationThreshold = 5 * 10**(DECIMALS - 2); // TODO: Change maybe?
+        deviationThreshold = 5 * 10**(DECIMALS - 2);
 
         rebaseLag = 30;
-        minRebaseTimeIntervalSec = 1 days;
-        rebaseWindowOffsetSec = 72000; // 8PM UTC
+        minRebaseTimeIntervalSec = 6 hours;
+        rebaseWindowOffsetSec = 5;
         rebaseWindowLengthSec = 15 minutes;
         lastRebaseTimestampSec = 0;
         epoch = 0;

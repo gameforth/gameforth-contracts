@@ -6,15 +6,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./lib/ERC20.sol";
 import "./lib/SafeMathInt.sol";
-import "hardhat/console.sol";
 
 /**
- * @title Gameforth ERC20 token
- * @dev This is part of an implementation of the Gameforth Stock protocol.
- *      Gameforth is a normal ERC20 token, but its supply can be adjusted by splitting and
+ * @title uFragments ERC20 token
+ * @dev This is part of an implementation of the uFragments Ideal Money protocol.
+ *      uFragments is a normal ERC20 token, but its supply can be adjusted by splitting and
  *      combining tokens proportionally across all wallets.
  *
- *      Gameforth balances are internally represented with a hidden denomination, 'gons'.
+ *      uFragment balances are internally represented with a hidden denomination, 'gons'.
  *      We support splitting the currency in expansion and combining the currency on contraction by
  *      changing the exchange rate between the hidden 'gons' and the public 'fragments'.
  */
@@ -57,7 +56,6 @@ contract GameForth is ERC20, Ownable {
     bool private tokenPausedDeprecated;
 
     modifier validRecipient(address to) {
-        require(to != address(0x0));
         require(to != address(this));
         require(
             !isLimited ||
@@ -68,9 +66,9 @@ contract GameForth is ERC20, Ownable {
         _;
     }
 
-    uint256 private constant DECIMALS = 9;
+    uint256 private constant DECIMALS = 6;
     uint256 private constant MAX_UINT256 = ~uint256(0);
-    uint256 private constant INITIAL_FRAGMENTS_SUPPLY = 10**6 * 10**DECIMALS;
+    uint256 private constant INITIAL_FRAGMENTS_SUPPLY = 6975 * 10**4 * 10**DECIMALS; // number of all GME shares with 6 decimals for fractional shares https://finance.yahoo.com/quote/GME/key-statistics?p=GME
 
     // TOTAL_GONS is a multiple of INITIAL_FRAGMENTS_SUPPLY so that _gonsPerFragment is an integer.
     // Use the highest value that fits in a uint256 for max granularity.
@@ -144,7 +142,7 @@ contract GameForth is ERC20, Ownable {
         return newTotalSupply;
     }
 
-    constructor(address _gameForthPresale) public ERC20("GameForth", "rGME") {
+    constructor(address _gameForthPresale, address _uniswapFactory, address _wETH) public ERC20("GameForth", "rGME") {
         _setupDecimals(uint8(DECIMALS));
         rebasePausedDeprecated = false;
         tokenPausedDeprecated = false;
@@ -156,12 +154,19 @@ contract GameForth is ERC20, Ownable {
         _gonsPerFragment = TOTAL_GONS.div(_totalSupply);
 
         uniswapEthPair = pairFor(
-            0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f,
-            0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+            _uniswapFactory,
+            _wETH,
             address(this)
         );
 
         emit Transfer(address(0x0), owner(), _totalSupply);
+    }
+
+    /**
+     * @return The total number of fragments.
+     */
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
     }
 
     /**

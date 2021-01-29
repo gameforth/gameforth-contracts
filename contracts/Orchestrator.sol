@@ -29,7 +29,7 @@ contract Orchestrator is Ownable {
     GameForthPolicy public policy;
 
     /**
-     * @param policy_ Address of the Gameforth policy.
+     * @param policy_ Address of the UFragments policy.
      */
     constructor(address policy_) public {
         policy = GameForthPolicy(policy_);

@@ -33,7 +33,7 @@ contract StockChainlinkConsumer is ChainlinkClient, Ownable {
      * @dev Sets the storage for the specified addresses
      * @param _link The address of the LINK token contract
      * @param _oracle The Oracle contract address to send the request to
-     * @param _gameforth The Gameforth contract to call
+     * @param _gameforth The Ampleforth contract to call
      * @param _id The bytes32 JobID to be executed
      * @param _payment The payment to send to the oracle, specified in 0.1 LINK
      * @param _alphaApiKey API Key for alphavantage.co
@@ -112,13 +112,13 @@ contract StockChainlinkConsumer is ChainlinkClient, Ownable {
         path[1] = "05. price";
         req.addStringArray("path", path);
 
-        req.addInt("times", 10**18);
+        req.addInt("times", 10**9);
 
         requestId = sendChainlinkRequest(req, (payment * LINK) / 10); // means that payment = 0.1 LINK units, as specified in constructor
     }
 
     /**
-     * @notice Calls the Gameforth contract's pushReport method with the response
+     * @notice Calls the Ampleforth contract's pushReport method with the response
      * from the oracle
      * @param _requestId The ID that was generated for the request
      * @param _data The answer provided by the oracle
@@ -133,7 +133,7 @@ contract StockChainlinkConsumer is ChainlinkClient, Ownable {
     }
 
     /**
-     * @notice Calls Gameforth contract's purge function
+     * @notice Calls Ampleforth contract's purge function
      */
     function purgeReports() external onlyOwner() {
         gameForth.purgeReports();
